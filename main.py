@@ -1,11 +1,10 @@
 import numpy as np
-import simpleaudio as sa
+import sounddevice as sd
 from enum import Enum
-from math import pi
+from math import pi, sqrt
 from textual.app import App, ComposeResult
 from textual.containers import Vertical, Horizontal
 from textual.widgets import Static, Button, TextArea
-import threading
 
 class Sound(Enum):
     Sine = 0
@@ -48,7 +47,7 @@ class MusicApp(App):
         if event.button.id == "play":
             try:
                 samples = self.synthesis()
-                sa.play_buffer(samples, 1, 2, samplerate)
+                sd.play(samples, samplerate)
             except Exception as e:
                 self.query_one("#error", Static).update(str(e))
         pass
@@ -57,6 +56,7 @@ class MusicApp(App):
         octave = 4
         chord = []
         isamples = np.empty((),dtype=np.int16)
+        dot = 1
 
         for i in code:
             try:
@@ -78,17 +78,24 @@ class MusicApp(App):
                     case "q": dur = 1
                     case "i": dur= 0.5
                     case "s": dur = 0.25
+                    case ".": 
+                        dot = 1+dot/2
+                        continue
                     case _: continue
+                dur *= dot
+                dot = 1
                 seconds = dur*60/self.tempo
                 csamples =  np.zeros(round(seconds* samplerate))
+                volume = 0.4 * sqrt(1 / max(len(chord), 1))
                 for f in chord:
                     samples =  np.linspace(0, seconds, num =round(seconds* samplerate))
                     samples *= f * 2*pi
-                    samples = np.sin(samples)
+                    samples = volume * np.sin(samples)
                     csamples += samples
                 csamples *= 2**15 -1
                 csamples = csamples.astype(np.int16)
                 isamples = np.append(isamples,csamples)
+                chord.clear()
         return isamples
                 
 
@@ -97,6 +104,12 @@ class MusicApp(App):
 if __name__ == "__main__":
     app = MusicApp()
     app.run()
+
+# Once all that is implemented, try pasting this into the notes and clicking play
+# C.q CE.q EGq 
+# GB4Ei EBi EAi EGi Dgq Gigi
+# Ei gi Ei Di D3BGEw h
+# 5Eq 4Eq 2B3E.w
 
 # isamples = np.empty((),dtype=np.int16)
 # samplerate = 44100
